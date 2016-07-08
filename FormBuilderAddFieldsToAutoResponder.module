@@ -1,0 +1,83 @@
+<?php
+
+/**
+ * Adds a checkbox to the Actions tab in the form settings to give you the option of including the form fields with the auto-responder email. This requires moving the email-autoresponder.php file included with this module to /site/templates/FormBuilder/
+ *
+ * Developed by Mike Spooner (thetuningspoon) for Solution Innovators
+ */
+
+class FormBuilderAddFieldsToAutoResponder extends WireData implements Module
+{
+
+	public static function getModuleInfo()
+	{
+		return array(
+			'title' => 'Add Fields to Auto-Responder Emails',
+			'author' => 'Mike Spooner (thetuningspoon), Solution Innovators',
+			'version' => 001,
+			'summary' => 'Adds a checkbox to the Actions tab in the form settings to give you the option of including the form fields with the auto-responder email. This requires moving the email-autoresponder.php file included with this module to /site/templates/FormBuilder/',
+			'singular' => true,
+			'autoload' => true,
+			'installs' => array(),
+			'requires' => array('FormBuilder'),
+			'icon' => 'wrench',
+		);
+	}
+
+	public function __construct() {}
+
+	public function init()
+	{
+		/**
+		 * Adds checkbox to actions settings tab to include fields in auto-responder
+		 */
+		$this->addHookAfter('ProcessFormBuilder::buildEditForm', function($event) {
+			$editForm = $event->return;
+			$that = $event->object; // The form processor object
+			$id = $event->arguments[0]; // ID of the FormBuilder form being edited
+			$form = $that->forms->load($id); // Form being edited
+
+			$f = $that->wire('modules')->get('InputfieldCheckbox');
+			$f->name = 'include_fields';
+			$f->value = 1;
+			$f->label = 'Include form fields in auto-response';
+			if($form->include_fields) $f->attr('checked', 'checked');
+
+			$responderBody = $editForm->get('form_responderBody');
+			$editForm->insertAfter($f, $responderBody);
+
+			$event->return = $editForm;
+		});
+
+
+		/**
+		 * Saves our new include_fields checkbox value to the database when the settings tab is saved, since this does not happen automatically
+		 */
+		$this->addHookBefore('ProcessFormBuilder::executeSaveForm', function($event) {
+			$that = $event->object;
+			$id = (int) $that->input->post->form_id;
+			$form = $that->forms->load($id); // Gets the Formbuilder form who's settings we're working with
+
+			// This is a less direct and probably less efficient (but more ProcessWirey) way of achieving the same thing (checking for the checkbox field value in POST)
+			/*$editForm = $that->buildEditForm($id);
+			$editForm->processInput($that->input->post);*/
+
+			// Save the checkbox value
+			if($that->input->post->include_fields)  {
+				$form->include_fields = 1;
+			}
+			else {
+				$form->include_fields = 0;
+			}
+		});
+
+	}
+
+	public function ready() { // PW API is ready
+	}
+
+	public function install() {}
+
+	public function uninstall() {}
+
+}
